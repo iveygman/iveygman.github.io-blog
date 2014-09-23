@@ -1,0 +1,59 @@
+body {
+    background-color: rgb(254, 243, 161);
+    color: #555D50;
+    font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+}
+
+.code {
+    font-family: "Courier New", Courier, monospace;
+}
+
+#main {
+    width: 61.8%;
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.header {
+    width: auto;
+    height: auto;
+    font-weight: bold;
+    margin-top: 0.618em;
+}
+
+.header #title {
+    font-size: 200%;
+    font-style: italic;
+    margin-top: 0.618em;
+    text-align: center;
+}
+
+.header #links {
+    width: 61.8%;
+    max-width: 61.8%;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: justify;
+    margin-bottom: 3em;
+}
+
+.header #links:after {
+    content: "";
+    display: inline-block;
+    width: 100%;
+}
+
+a.header {
+    margin-top: 0.5em;
+    color: black;
+    font-size: 110%;
+    text-decoration: none;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+a.header:hover {
+    font-weight: bolder;
+    text-decoration: underline;
+}
