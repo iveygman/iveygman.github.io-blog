@@ -28,3 +28,10 @@ a.header:hover {
     font-weight: bolder;
     text-decoration: underline;
 }
+
+.hero-unit {
+    padding:60px 60px 80px;
+    font-size: 13px;
+    line-height: 18px;
+    color: #333;
+}
