@@ -15,35 +15,6 @@ body {
     margin-right: auto;
 }
 
-.header {
-    width: auto;
-    height: auto;
-    font-weight: bold;
-    margin-top: 0.618em;
-}
-
-.header #title {
-    font-size: 200%;
-    font-style: italic;
-    margin-top: 0.618em;
-    text-align: center;
-}
-
-.header #links {
-    width: 61.8%;
-    max-width: 61.8%;
-    margin-left: auto;
-    margin-right: auto;
-    text-align: justify;
-    margin-bottom: 3em;
-}
-
-.header #links:after {
-    content: "";
-    display: inline-block;
-    width: 100%;
-}
-
 a.header {
     margin-top: 0.5em;
     color: black;
