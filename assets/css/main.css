@@ -52,9 +52,9 @@ h4.well {
 
 #logo {
     position:absolute;
-    background: url('http://www.gravatar.com/avatar/b76a9177648e6a5ef1d0b110b4234c2d.png') transparent no-repeat top left;
-    width:100px;
-    height:100px;
-    top: 60px;
-    left:150px;
+    background: url('https://avatars1.githubusercontent.com/u/314187?v=2&s=240') transparent no-repeat top left;
+    width:240px;
+    height:240px;
+/*     top: 60px; */
+    left:80%;
 }
