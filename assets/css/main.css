@@ -47,6 +47,8 @@ h1.hero-unit {
 
 div.row {
     max-width:85%;
+    margin-right:auto;
+    margin-left:auto;
 }
 
 .post span {
