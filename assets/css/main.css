@@ -49,6 +49,9 @@ a.header:hover {
     padding: 20px;
 }
 
+.about {
+    max-width:33%;
+}
 
 h1.hero-unit {
     font-size: 26px;
