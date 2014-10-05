@@ -31,9 +31,7 @@ blockquote {
 body {
     margin-bottom: 60px;
     padding-top:60px;
-    background-color: #F8F8FF;
-    color: #555D50;
-    font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+    background-image: url('/background.png');
 }
 
 .container {
