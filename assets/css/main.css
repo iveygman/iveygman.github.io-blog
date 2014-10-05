@@ -37,8 +37,8 @@ a.header:hover {
     background-color: #DFDFE6;
     border-radius: 12px;
     border: 0px;
-    margin-left: 15%;
-    margin-right: 15%;
+/*     margin-left: 15%; */
+/*     margin-right: 15%; */
 }
 
 .container {
@@ -50,7 +50,7 @@ a.header:hover {
 }
 
 .about {
-    max-width:33%;
+/*     max-width:33%; */
 }
 
 h1.hero-unit {
@@ -58,9 +58,9 @@ h1.hero-unit {
 }
 
 div.row {
-    max-width:85%;
-    margin-right:auto;
-    margin-left:auto;
+/*     max-width:85%; */
+/*     margin-right:auto; */
+/*     margin-left:auto; */
 }
 
 .post span {
