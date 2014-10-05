@@ -45,6 +45,11 @@ a.header:hover {
     position:relative;
 }
 
+.well {
+    padding: 20px;
+}
+
+
 h1.hero-unit {
     font-size: 26px;
 }
