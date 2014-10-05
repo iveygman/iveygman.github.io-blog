@@ -44,3 +44,15 @@ a.header:hover {
 h1.hero-unit {
     font-size: 26px;
 }
+
+div.row {
+    max-width:85%;
+}
+
+.post span {
+    height:300px;
+    display:block;
+    background-color:transparent;
+    background-repeat: no-repeat;
+    background-position: 50% 30%;
+}
