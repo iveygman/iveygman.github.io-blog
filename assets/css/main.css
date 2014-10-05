@@ -8,27 +8,6 @@ body {
     font-family: "Courier New", Courier, monospace;
 }
 
-#main {
-/*     width: 61.8%; */
-/*     max-width: 80%; */
-/*     margin-left: auto; */
-/*     margin-right: auto; */
-}
-
-a.header {
-    margin-top: 0.5em;
-    color: black;
-    font-size: 110%;
-    text-decoration: none;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-a.header:hover {
-    font-weight: bolder;
-    text-decoration: underline;
-}
-
 .hero-unit {
     padding:60px 60px 80px;
     font-size: 13px;
@@ -49,6 +28,11 @@ a.header:hover {
 
 h1.hero-unit {
     font-size: 26px;
+}
+
+h2.well {
+    font-size: 14px;
+    background-color: #C8C8C8;
 }
 
 .post span {
