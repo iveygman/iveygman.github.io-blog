@@ -9,10 +9,10 @@ body {
 }
 
 #main {
-    width: 61.8%;
-    max-width: 80%;
-    margin-left: auto;
-    margin-right: auto;
+/*     width: 61.8%; */
+/*     max-width: 80%; */
+/*     margin-left: auto; */
+/*     margin-right: auto; */
 }
 
 a.header {
@@ -37,8 +37,6 @@ a.header:hover {
     background-color: #DFDFE6;
     border-radius: 12px;
     border: 0px;
-/*     margin-left: 15%; */
-/*     margin-right: 15%; */
 }
 
 .container {
@@ -49,18 +47,8 @@ a.header:hover {
     padding: 20px;
 }
 
-.about {
-/*     max-width:33%; */
-}
-
 h1.hero-unit {
     font-size: 26px;
-}
-
-div.row {
-/*     max-width:85%; */
-/*     margin-right:auto; */
-/*     margin-left:auto; */
 }
 
 .post span {
