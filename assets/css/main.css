@@ -41,6 +41,10 @@ a.header:hover {
     margin-right: 15%;
 }
 
+.container {
+    position:relative;
+}
+
 h1.hero-unit {
     font-size: 26px;
 }
