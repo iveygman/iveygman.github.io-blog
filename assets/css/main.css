@@ -49,3 +49,12 @@ h4.well {
     background-repeat: no-repeat;
     background-position: 50% 30%;
 }
+
+#logo {
+    position:absolute;
+    background: url('http://www.gravatar.com/avatar/b76a9177648e6a5ef1d0b110b4234c2d.png') transparent no-repeat top left;
+    width:100px;
+    height:100px;
+    top: 60px;
+    left:150px;
+}
