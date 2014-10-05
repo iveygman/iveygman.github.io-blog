@@ -34,6 +34,15 @@ h4.well {
     background-color: #C8C8C8;
 }
 
+.archive-link{
+    font-size: 24px;
+    line-height: 36px;
+    margin-left:60px;
+    display:block;
+    border-top:5px solid #eee;
+    padding: 20px 0;
+}
+
 .post span {
     height:300px;
     display:block;
