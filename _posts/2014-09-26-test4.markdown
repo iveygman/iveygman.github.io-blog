@@ -1,9 +1,0 @@
----
-title: Test 4
-layout: default
-author:
-    name: Ilya Veygman
-    url: iveygman.github.io
----
-
-Test 4
