@@ -12,7 +12,7 @@ class homework. In this instance, we're going to make some art.
 [Piet Mondrian](http://en.wikipedia.org/wiki/Piet_Mondrian) was a Dutch painter who was a major contributor to a modern art movement
 known as [De Stijl](http://en.wikipedia.org/wiki/De_Stijl). He's probably most famous for works like this:
 
-![Composition II In Red, Blue and Yellow](http://upload.wikimedia.org/wikipedia/en/f/fe/Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg =250x "Composition II In Red, Blue and Yellow") ![Composition with Yellow, Blue, and Red](http://upload.wikimedia.org/wikipedia/en/7/72/Mondrian_CompRYB.jpg =250x "Composition with Yellow, Blue, and Red")
+<img src="http://upload.wikimedia.org/wikipedia/en/f/fe/Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg" alt="Composition II In Red, Blue and Yellow" style="width: 250px; height: 250px">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="http://upload.wikimedia.org/wikipedia/en/7/72/Mondrian_CompRYB.jpg" alt="Composition with Yellow, Blue, and Red" style="width: 250px; height: 250px">
 
 We're going to make our own little script that will generate similar artworks for both fun and possible copyright infringement.
 
@@ -47,8 +47,7 @@ keep track of each line we draw and each point at which the lines intersect, lik
 
 Drawing a line in d3 can be done like so:
 
-    container.append("line").attr("x1", point1.x).attr("y1", point1.y).attr("x2", point2.x).attr("y2", point2.y)
-                                .attr("stroke-width", width).attr("stroke", color);
+    container.append("line").attr("x1", point1.x).attr("y1", point1.y).attr("x2", point2.x).attr("y2", point2.y).attr("stroke-width", width).attr("stroke", color);
 
 As you can imagine, this is pretty verbose, so we'll be using a helper function called makeLine to handle this for us. makeLine accepts
 the SVG's container, a start point, an end point, a line width and a line stroke. Here we'll actually draw the border lines in white because
