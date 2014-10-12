@@ -12,7 +12,10 @@ class homework. In this instance, we're going to make some art.
 [Piet Mondrian](http://en.wikipedia.org/wiki/Piet_Mondrian) was a Dutch painter who was a major contributor to a modern art movement
 known as [De Stijl](http://en.wikipedia.org/wiki/De_Stijl). He's probably most famous for works like this:
 
-<img src="http://upload.wikimedia.org/wikipedia/en/f/fe/Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg" alt="Composition II In Red, Blue and Yellow" style="width: 250px; height: 250px">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="http://upload.wikimedia.org/wikipedia/en/7/72/Mondrian_CompRYB.jpg" alt="Composition with Yellow, Blue, and Red" style="width: 250px; height: 250px">
+
+| [<img src="http://upload.wikimedia.org/wikipedia/en/f/fe/Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg" alt="Composition II In Red, Blue and Yellow" style="width: 250px; height: 250px">](http://en.wikipedia.org/wiki/File:Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg) | [<img src="http://upload.wikimedia.org/wikipedia/en/7/72/Mondrian_CompRYB.jpg" alt="Composition with Yellow, Blue, and Red" style="width: 250px; height: 250px">](http://en.wikipedia.org/wiki/File:Mondrian_CompRYB.jpg) |
+|---|---|
+| *Composition II In Red, Blue and Yellow*  |  *Composition with Yellow, Blue, and Red*  |
 
 We're going to make our own little script that will generate similar artworks for both fun and possible copyright infringement.
 
