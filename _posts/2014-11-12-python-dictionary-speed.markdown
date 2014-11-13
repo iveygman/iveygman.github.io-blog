@@ -1,5 +1,5 @@
 ---
-title: Instatiating Python Dictionaries
+title: Instantiating Python Dictionaries
 layout: default
 author:
   name: Ilya Veygman
