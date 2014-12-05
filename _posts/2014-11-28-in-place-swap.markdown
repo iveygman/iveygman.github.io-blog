@@ -27,7 +27,7 @@ Why does this work? It's because of the properties of exclusive-or in Boolean al
 | 0 | 0 | 1 |
 | 1 | 1 | 0 |
 
-Here is an example MathJax inline rendering \\( 1/x^{2} \\), and here is a block rendering: 
+Here is an example MathJax inline rendering \\smash\\( 1/x^{2} \\), and here is a block rendering: 
 \\[ \frac{1}{n^{2}} \\]
 
 For any value, `A`, this means that `A XOR A == 0`. In the first stage of the swap, we set `a = a ^ b`. This means that in the second stage, `b ^ a` is effectively the same as `b ^ a ^ b`. Because exclusive-or is also associative, that is `A XOR B == B XOR A`, Therefore, `b ^ a` is equivalent to `b ^ b ^ a`, which, from associativity, is simply `a`. This is why we do step 1 -- it sets up `a` as a masked variable with `b`.
