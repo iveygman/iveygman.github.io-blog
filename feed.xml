@@ -5,6 +5,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
     <title>I, Veygman</title>
+    <script type="text/javascript"
+        src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
     <link href="{{ site.url }}{{ page.url }}" rel="self" />
     <link href="{{ page.url }}" />
     <updated>{{ site.time | date_to_xmlschema }}</updated>
