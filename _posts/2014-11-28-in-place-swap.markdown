@@ -1,5 +1,5 @@
 ---
-title: Bit Twiddling Tricks 101: The In-Place Swap
+title: Bit Twiddling Tricks 101&#58; The In-Place Swap
 layout: default
 author:
   name: Ilya Veygman
@@ -22,13 +22,11 @@ This prints
 
 Why does this work? It's because of the properties of exclusive-or in Boolean algebra. Recall the truth-table for exclusive-or:
 
-|   | 0 | 1 |
-|---|---|---|
-| 0 | 0 | 1 |
-| 1 | 1 | 0 |
+	    | 0   1  
+	 ---|--------
+	  0 | 0   1 
+	  1 | 1   0 
 
-Here is an example MathJax inline rendering \\smash\\( 1/x^{2} \\), and here is a block rendering: 
-\\[ \frac{1}{n^{2}} \\]
 
 For any value, `A`, this means that `A XOR A == 0`. In the first stage of the swap, we set `a = a ^ b`. This means that in the second stage, `b ^ a` is effectively the same as `b ^ a ^ b`. Because exclusive-or is also associative, that is `A XOR B == B XOR A`, Therefore, `b ^ a` is equivalent to `b ^ b ^ a`, which, from associativity, is simply `a`. This is why we do step 1 -- it sets up `a` as a masked variable with `b`.
 
@@ -45,4 +43,47 @@ The whole point of this confusing-looking formula is to avoid temporary variable
 
 #### Standard C++
 
-Since C++11, you can now use `std::swap` as a fast, reliable way to swap the values of any two variables of the same type. This may be a better approach for many since the above XOR-method doesn't work for `float` or many other types of data.
+Since C++11, you can now use `std::swap` as a fast, reliable way to swap the values of any two variables of the same type. This may be a better approach for many since the above XOR-method doesn't work for `float` or many other types of data. It also happens to be faster! The below test program (compiled using clang++ on a Macbook Pro running Yosemite) yields this XOR approach taking 9.5ms while `std::swap` takes 3.9ms for 1,000,000 iterations each.
+
+	#include <chrono>
+	#include <iostream>
+	
+	using namespace std;
+	
+	void intswap(int *a, int *b) {
+	    *a ^= *b;
+	    *b ^= *a;
+	    *a ^= *b;
+	}
+	
+	int main(int argc, char **argv) {
+	
+	
+	    int one = 1, two = 2;
+	    chrono::time_point<chrono::system_clock> start, end;
+	    chrono::duration<long double> elapsed;
+	
+	    // use our swap
+	    start = chrono::system_clock::now();
+	    for (int i = 0; i < 1000000; i++) {
+	        one ^= two;
+	        two ^= one;
+	        one ^= two;
+	    }
+	    end = chrono::system_clock::now();
+	    elapsed = end - start;
+	
+	    cout << "XOR swap took " << elapsed.count() << endl;
+	
+	    start = chrono::system_clock::now();
+	    for (int i = 0; i < 1000000; i++) {
+	        std::swap(one,two);
+	    }
+	    end = chrono::system_clock::now();
+	    elapsed = end - start;
+	    cout << "std::swap took " << elapsed.count() << endl;
+	
+	    return 0;
+	}
+
+What this means is that you should use `std::swap` whenever it's available, but the XOR trick can be useful for swapping stuff in-place on systems that either don't have C++11 or are very lightweight.
