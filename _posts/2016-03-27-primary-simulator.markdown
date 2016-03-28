@@ -1,5 +1,5 @@
 ---
-title: Sunday Hack: Democratic Primary Simulator
+title: Sunday Hack&#58; Democratic Primary Simulator
 layout: default
 author:
   name: Ilya Veygman
