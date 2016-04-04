@@ -1,5 +1,4 @@
 test.sh
-_site
 Gemfile.*
 *.DS_Store
 *.pem

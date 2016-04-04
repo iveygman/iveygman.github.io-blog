@@ -1,0 +1,653 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <title>I, Veygman</title>
+    <link href="/feed.xml" rel="self" />
+    <link href="/feed.xml" />
+    <updated>2016-04-03T23:50:12-07:00</updated>
+    <id></id>
+    <author>
+        <name>Ilya Veygman</name>
+        <email></email>
+    </author>
+    
+    <entry>
+        <title>The Strangest Bug I Ever Debugged</title>
+        <link href="/2016/04/03/hardest-bug-ever.html" />
+        <updated>2016-04-03T00:00:00-07:00</updated>
+        <id>/2016/04/03/hardest-bug-ever</id>
+        <content type="html">
+            &lt;p&gt;Let’s talk about the most unusual bug I’ve ever had to debug. This will take us back all the way to about 5 years ago in 2011. &lt;/p&gt;
+
+&lt;h3 id=&quot;background&quot;&gt;Background&lt;/h3&gt;
+
+&lt;p&gt;At the time, I was working for a major semiconductor manufacturer, Maxim Integrated, making software and algorithms related to optical sensors. This particular project was a new technology (which spawned several patents) that required me to write some demo, test and evaluation software.&lt;/p&gt;
+
+&lt;p&gt;Now I wasn’t familiar with Arduino at this time, so I used an internal platform called &lt;a href=&quot;https://www.maximintegrated.com/en/products/digital/microcontrollers/MAXQ2000.html&quot;&gt;MAXQ2000&lt;/a&gt;. This was a pretty old system, even by our analog company standards, but it was all I had so I went with it. &lt;/p&gt;
+
+&lt;p&gt;One particularly annoying thing about this chip was that it had no native &lt;a href=&quot;https://en.wikipedia.org/wiki/I%C2%B2C&quot;&gt;I2C&lt;/a&gt; support, meaning you had to implement it using bit-banging on some of the general purpose I/O (GPIO) ports. Lucky for me, we had an internal library that did just this, so I didn’t need to burn a bunch of time poring over the standard and developing this from scratch.&lt;/p&gt;
+
+&lt;p&gt;I imported the header, linked the resultant binary and everything was fine. &lt;/p&gt;
+
+&lt;p&gt;For a time.&lt;/p&gt;
+
+&lt;h3 id=&quot;the-weird-shit-starts&quot;&gt;The Weird Shit Starts&lt;/h3&gt;
+
+&lt;p&gt;I realized something odd was happening when I finished doing some changes, unplugged my dev board, went to lunch, then returned to find that I was suddenly unable to communicate with the sensor. Well, not exactly.&lt;/p&gt;
+
+&lt;p&gt;See, I could turn it on, but whenever I tried to &lt;em&gt;read&lt;/em&gt; data from it or change settings, it would always return garbage or not respond. Specifically, it would always return the same values from the data channels no matter what I did. I initially chalked this up to a bad sensor, so I swapped mine out for a new one – to no avail. Then I assumed the PCB had an issue – but so did all the other ones.&lt;/p&gt;
+
+&lt;p&gt;I thought that, maybe, I somehow introduced a bug in my code, so I reverted to increasingly older variants of the firmware only to find the same issue happening again and again.&lt;/p&gt;
+
+&lt;p&gt;Here’s where it got really weird: this wouldnt happen on all devices, at least not at first. Some of our modules running &lt;em&gt;identical code&lt;/em&gt; but built earlier never had any issues. Naturally, in the time it took me to ultimately fix this bug, those became prized posessions amongs our field guys and testers.&lt;/p&gt;
+
+&lt;h3 id=&quot;a-wild-workaround-appears&quot;&gt;A Wild Workaround Appears&lt;/h3&gt;
+
+&lt;p&gt;As it turned out, you could remove this issue flawlessly by executing the following steps:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Flash the firmware to the device&lt;/li&gt;
+  &lt;li&gt;Restart the device but do NOT unplug for more than 0.5 seconds (roughly the time constant of our power circuit)&lt;/li&gt;
+  &lt;li&gt;Repeat step 1 every time you move the device&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Naturally this wasn’t a great solution and we couldn’t ship that to customers, but at least we could demo and test for the time being.&lt;/p&gt;
+
+&lt;p&gt;Weird, right? Well the annoying part about this workaround is it works even if you don’t want it to. What I mean is that this workaround also prevented me from ever using a serial debugger or in-circuit emulator to step through the code and find out what’s been happening. Why? Because every time you plug in the debugger and tell it to start, it flashes the firmware anew and restarts, essentially doing the workaround every time. Great, so that’s out.&lt;/p&gt;
+
+&lt;p&gt;It got even weirder, though: this issue began to appear on previously “good” modules, completely inexplicably. What was going on? Apparently I’d discovered something which is both a &lt;a href=&quot;https://en.wikipedia.org/wiki/Heisenbug&quot;&gt;Heisenbug&lt;/a&gt; and a Schrodinbug.  &lt;/p&gt;
+
+&lt;h3 id=&quot;x-weeks-later&quot;&gt;X Weeks Later&lt;/h3&gt;
+
+&lt;p&gt;I’m too ashamed to admit how long it took me to find a permanent solution to this bug, but I ultimately found one. Since I couldn’t use a debugger, I ended up having to dump massive amounts of print statements onto our serial output to try and figure out what was happening. &lt;/p&gt;
+
+&lt;p&gt;Nothing in my code yielded any insight, so I had to look elsewhere, but where? Well, the only other non-standard library I was importing was our I2C utility. And therein I found the issue, sort of. The header of my main.c looked something like this:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#include &amp;lt;stdlib.h&amp;gt; // plus some other libraries
+#include &quot;i2c.h&quot;    // our in-house i2c implementation
+
+extern uint8_t I2C_BUFFER[128];
+extern uint8_t I2C_SLAVE_ADDR; // 7-bit slave address
+
+extern uint8_t i2c_write(...);
+...
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Essentially, there was a single buffer you’d either write to or read from to write/read the slave device, and this buffer lived in &lt;code&gt;i2c.h&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;// some stdlib includes
+
+uint8_t I2C_BUFFER[128];
+uint8_t I2C_SLAVE_ADDR;
+
+// function definitions here
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Yeah, yeah, I know, globals bad but I didn’t write this code so don’t shoot me. So what happened? Well, after putting a few serial outputs in the right places, I found that while I was &lt;em&gt;sending&lt;/em&gt; the expected bits to the slave device, I was also &lt;em&gt;receiving&lt;/em&gt; the correct response. This meant that the library was returning the wrong data in &lt;code&gt;I2C_BUFFER&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;This was a puzzling discovery to say the least, especially knowing that it behaved correctly right after flashing. I fixed it by making the following changes. &lt;code&gt;main.c&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#include &amp;lt;stdlib.h&amp;gt; // plus some other libraries
+#include &quot;i2c.h&quot;    // our in-house i2c implementation
+
+uint8_t I2C_BUFFER[128]; // this now lives in main
+uint8_t I2C_SLAVE_ADDR; // 7-bit slave address now lives in main
+
+extern uint8_t i2c_write(...);
+...
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;code&gt;i2c.h&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;// some stdlib includes
+
+extern uint8_t I2C_BUFFER[128];
+extern uint8_t I2C_SLAVE_ADDR;
+
+// function definitions here
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&quot;wait-what&quot;&gt;Wait, What?&lt;/h3&gt;
+
+&lt;p&gt;Okay, so I admit I’m not 100% sure that this was the root cause, but I strongly suspect it to this day. See, microcontollers have both flash memory and RAM when executing code, and you can typically only write to one of those during normal execution – the RAM. Flash is where you keep the firmware whilst your heap would be in the RAM.&lt;/p&gt;
+
+&lt;p&gt;So my working hypothesis to this day is that those two globals in &lt;code&gt;i2c.h&lt;/code&gt; somehow got put into the flash memory address space, which would have possibly remained writable whilst still plugged into the flashing device/software but would have become read-only after losing power. In retrospect, since I theoretically know the range of addresses corresponding to both flash and RAM, I could have confirmed this, but the theory fits pretty well. Somehow, moving the globals to &lt;code&gt;main.c&lt;/code&gt; caused them to live in RAM and not flash.&lt;/p&gt;
+
+&lt;h3 id=&quot;lessons-learned&quot;&gt;Lessons Learned&lt;/h3&gt;
+
+&lt;p&gt;&lt;strong&gt;Lesson the First:&lt;/strong&gt; don’t assume that just because you have a library that it’s 1) well-tested, 2) robust or 3) bug-free. This is something only a relatively green engineer would assume and I no longer make these mistakes (so I think anyway).&lt;/p&gt;
+
+&lt;p&gt;I tried to report the bug to the original author of the software but it seemed they had left the company.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Lesson the Second:&lt;/strong&gt; abstractions are only good to a certain extent. Yes, the compiler takes care of a lot for you, but at the end of the day, a computer program is a microcontroller executing instructions in a sequence from memory. That memory has physical hardware behind it and may not always behave as expected. It’s easy to take that for granted and it can really come back to bite you in the ass.&lt;/p&gt;
+
+            
+        </content>
+    </entry>
+    
+    <entry>
+        <title>Sunday Hack&#58; Democratic Primary Simulator</title>
+        <link href="/2016/03/27/primary-simulator.html" />
+        <updated>2016-03-27T00:00:00-07:00</updated>
+        <id>/2016/03/27/primary-simulator</id>
+        <content type="html">
+            &lt;p&gt;I’ve been out for a while doing… things, but I figured I would try to start posting random crap here. The 2016 Presidential Primaries are currently ongoing and everyone is trying to figure out who will be the big winner.&lt;/p&gt;
+
+&lt;p&gt;I, for one, have been browsing the prediction markets on &lt;a href=&quot;http://www.PredictIt.com&quot;&gt;PredictIt.com&lt;/a&gt; as well periodically reading FiveThirtyEight.com, particularly &lt;a href=&quot;projects.fivethirtyeight.com/election-2016/delegate-targets/democrats/&quot;&gt;this post&lt;/a&gt;, which is a nice visualization of what’s currently going on. If you browse Reddit, you’re also aware that the site is very much in favor of Bernie Sanders (/r/The_Donald aside), to the point that it gets a bit spammy. Well, one post that caught my eye was under /r/bestof about &lt;a href=&quot;https://np.reddit.com/r/enoughsandersspam/comments/4avw76/the_numbers_are_looking_really_bad_for_sanders/&quot;&gt;how exactly the delegate math may work out for Sanders&lt;/a&gt;. This seems like a good opportunity to practice my Javascript. Let’s get into it.&lt;/p&gt;
+
+&lt;p&gt;But first, you may find the actual page here: &lt;a href=&quot;http://iveygman.github.io/demprimarysimulator/&quot;&gt;http://iveygman.github.io/demprimarysimulator/&lt;/a&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;goal&quot;&gt;Goal&lt;/h3&gt;
+
+&lt;p&gt;Our goal here is to make a tool where we can visualize how the two candidates may fare under certain scenarios. We don’t want to bother simulating primaries that have already finished, instead focusing on future races that haven’t yet been resolved. Individual races may be simulated individually or we can look at a few preset scenarios.&lt;/p&gt;
+
+&lt;h3 id=&quot;our-tech-stack&quot;&gt;Our Tech Stack&lt;/h3&gt;
+
+&lt;p&gt;I’m always looking for an excuse to shoehorn in &lt;a href=&quot;https://www.JQuery.com&quot;&gt;JQuery&lt;/a&gt;, but it didn’t really fit here so it was left out. Since we’re dealing with a bunch of data that we want to dynamically manipulate, &lt;a href=&quot;https://angularjs.org&quot;&gt;AngularJS&lt;/a&gt; is a useful tool. Finally, we’ll be making a simple bar graph to visualize it all, so we’ll also pull in &lt;a href=&quot;https://d3js.org/&quot;&gt;D3.js&lt;/a&gt;. The entire application will be front-end to keep it quick and light (well for our servers anyway, heheheh)&lt;/p&gt;
+
+&lt;h3 id=&quot;step-1-make-the-table&quot;&gt;Step 1: Make the Table&lt;/h3&gt;
+
+&lt;p&gt;See &lt;a href=&quot;https://github.com/iveygman/demprimarysimulator/blob/master/app.js&quot;&gt;app.js&lt;/a&gt; to follow along.&lt;/p&gt;
+
+&lt;p&gt;Create a data controller &lt;code&gt;DataCtrl&lt;/code&gt; that will control our DOM and load our data in a nice JSON format. It’s not enough to simply load the data, we also want to track some aggregates, so after we load the Democratic primary data into our scope, we also want to assign each unfinished race some additional flags and members:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;for (i in $scope.democrats) {
+	var notSet = $scope.democrats[i].Clinton.actual == null;
+	$scope.democrats[i].notYetSet = notSet;
+	$scope.democrats[i].totalDelegates = 0;
+	for (j in $scope.democratnames) {
+		var name = $scope.democratnames[j];
+		$scope.democrats[i][name].modeledDelegates = $scope.democrats[i][name].expected;
+		$scope.democrats[i].totalDelegates += $scope.democrats[i][name].expected;
+	}
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let’s break this down.&lt;/p&gt;
+
+&lt;p&gt;We say that any entry where the actual delegate count is null hasn’t yet been set (we can check either Clinton or Sanders for this). To any object, we set a flag that corresponds to whether or not this field is null (&lt;code&gt;$scope.democrats[i].notYetSet&lt;/code&gt;). We then want to know how many total delegates there are per race as well as to set a model of expected delegates per candidate for each race.&lt;/p&gt;
+
+&lt;p&gt;We let &lt;code&gt;modeledDelegates&lt;/code&gt; be the same as &lt;code&gt;expected&lt;/code&gt; for each candidate in each race, per the FiveThirtyEight modeled data. This is the “expected” result assuming Nate Silver’s models are 100% accurate.&lt;/p&gt;
+
+&lt;p&gt;On the &lt;a href=&quot;https://github.com/iveygman/demprimarysimulator/blob/master/delegates.html&quot;&gt;HTML side&lt;/a&gt;, we make a nice table showing the date and location of each primary, as well as the total number of delegates at stake and the number of expected delegates for each candidate. If the race has already finished, then we display the actual number of delegates won by each candidate. Otherwise, we display the adjustable &lt;code&gt;modeledDelegates&lt;/code&gt; for the candidates.&lt;/p&gt;
+
+&lt;p&gt;This adjusting can be done using a slider to the right of the delegate count cells. Here’s what the code looks like to make this slider:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;lt;td class=&quot;slider-cell&quot;&amp;gt;
+	&amp;lt;span ng-if&quot;!primary.notYetSet&quot;&amp;gt;&amp;amp;nbsp;&amp;lt;/span&amp;gt;
+	&amp;lt;span ng-if=&quot;primary.notYetSet&quot; title=&quot;More votes for Clinton&quot; class=&quot;range-label&quot;&amp;gt;C&amp;lt;/span&amp;gt;
+	&amp;lt;input 	class=&quot;slider&quot;
+			ng-disabled=&quot;!primary.notYetSet&quot;
+			ng-model=&quot;primary.Sanders.modeledDelegates&quot;
+			ng-change=&quot;sliderDidChange(primary.state, &#39;democrats&#39;, primary.Sanders.modeledDelegates)&quot;
+			type=&quot;range&quot; 
+			id=&quot;slider-&quot; 
+			min=0 
+			max=&quot;&quot; 
+			value=&quot;&quot;&amp;gt;
+	&amp;lt;span ng-if=&quot;primary.notYetSet&quot; title=&quot;More votes for Sanders&quot; class=&quot;range-label&quot;&amp;gt;S&amp;lt;/span&amp;gt;
+&amp;lt;/td&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And in Javascript:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$scope.superDelegatesDidChange = function(sandersDelegates) {
+	$scope.democratsuperdelegates.Sanders = parseInt(sandersDelegates, 10); // to ensure we have a number
+	$scope.democratsuperdelegates.Clinton = $scope.democratsuperdelegates.total - $scope.democratsuperdelegates.Sanders;
+	$scope.updateModel();
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let’s explain this too. We want to disable the adjusting if the individual primary has finished, so we use &lt;code&gt;ng-if&lt;/code&gt; and &lt;code&gt;ng-disabled&lt;/code&gt; with the flag &lt;code&gt;primary.notYetSet&lt;/code&gt;, where &lt;code&gt;primary&lt;/code&gt; is our iterator. The adjustment is modeled by moving one candidate’s – here Sanders’ – delegate count up or down. Since only two candidates are present, we can trivially compute Clinton’s delegate count from this input as well. What does &lt;code&gt;updateModel()&lt;/code&gt; do? &lt;/p&gt;
+
+&lt;p&gt;At the bottom, we see the totals for the number of delegates won so far both with and without the modeled data. This is what we – I admit pretty inefficiently – do in &lt;code&gt;updateModel()&lt;/code&gt;. What do you want from me? I did this in a few hours. This function does two things:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Sum up the total number of actual, expected and modeled delegates (see &lt;code&gt;sumAllDemocraticDelegates&lt;/code&gt; for a messy implementation).&lt;/li&gt;
+  &lt;li&gt;Reset the data we will use in our plot (more on that later).&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;You can adjust delegate counts for unfinished races to see how this works out.&lt;/p&gt;
+
+&lt;p&gt;You can also download the code and null out already-finished races if you want to try more what-if scenarios.&lt;/p&gt;
+
+&lt;h3 id=&quot;step-2-make-the-plot&quot;&gt;Step 2: Make the Plot&lt;/h3&gt;
+
+&lt;p&gt;Here’s where D3 comes in. I’m pretty shit with this library, so I ended up finding an example &lt;a href=&quot;http://bl.ocks.org/biovisualize/5372077&quot;&gt;here&lt;/a&gt; and modifying it accordingly. I won’t get into the details here, since I just hacked it together through trial and error, but I’ll touch on two modifications I made to the original code.&lt;/p&gt;
+
+&lt;p&gt;First, there is this bit toward the end of the D3 block:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;if (drawCount &amp;lt; 2) {
+	drawCount += 1;
+	svg.append(&quot;text&quot;).attr(&quot;text-anchor&quot;, &quot;middle&quot;)  // this makes it easy to center the text as the transform is applied to the anchor
+    .attr(&quot;transform&quot;, &quot;translate(&quot;+ margin.left/2 +&quot;,&quot;+ chartH/2+&quot;)rotate(-90)&quot;) // text is drawn off the screen top left, move down and out and rotate
+    .text(&quot;100&#39;s of delegates&quot;);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Why do we care how many times we draw? Well it turns out that if you don’t do this, the library will keep overwriting its axis label and make it kind of ugly. This refresh happens any time we modify the model data, so it can happen a lot. It’s very hacky, yes, and there’s likely a better way of doing it, yes, but, again, I wanted something quick and dirty.&lt;/p&gt;
+
+&lt;p&gt;Second, we modify the style of the bars to change color depending on their value. If the value rises above the total number of delegates needed to win, then we change the color to gold. Otherwise, it stays blue. See&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;   }).style(&#39;fill&#39;, function(d, i) { 
+   	if (d &amp;gt; delegatesToWin.democrats) {
+   		return &#39;#CCC02B&#39;;
+   	} else {
+   		return &#39;#0000DD&#39;;
+   	}
+   });
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&quot;step-3-make-some-scenarios&quot;&gt;Step 3: Make Some Scenarios&lt;/h3&gt;
+
+&lt;p&gt;We make a few callbacks and some pretty CSS spans that will manipulate the model data in certain ways to simulate scenarios. For example, one such scenario is Bernie Sanders winning every race not yet completed by 10% MORE than expected. For this we create a callback in our scope:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$scope.sandersPctBetter = function(winScale) {
+	$scope.reset();
+	for (i in $scope.democrats) {
+		if ($scope.democrats[i].notYetSet) {
+			$scope.democrats[i].Sanders.modeledDelegates = Math.round($scope.democrats[i].Sanders.expected * winScale);
+			$scope.democrats[i].Clinton.modeledDelegates =  $scope.democrats[i].Sanders.expected + $scope.democrats[i].Clinton.expected - $scope.democrats[i].Sanders.modeledDelegates;
+		}
+	}
+	$scope.updateModel();
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;As an explanation, we first reset to the “default” state (more on that in a bit), then for any unfinished race, we set &lt;code&gt;modeledDelegates&lt;/code&gt; to be some multiplier of &lt;code&gt;expected&lt;/code&gt; for Sanders. We then subtract that from the total number of delegates available for this race to get Clinton’s resultant delegate count. By letting &lt;code&gt;winScale&lt;/code&gt; be set by the caller, we can simulate several scenarios like 20% and 30% more than expected wins across all such states. &lt;code&gt;updateModel&lt;/code&gt; is called at the end to ensure that we get correct totals and that the graph is appropriately updated.&lt;/p&gt;
+
+&lt;p&gt;Obviously we want to be able to reset to the original model states after messing around, so a “Default” is provided. This simply resets &lt;code&gt;modeledDelegates&lt;/code&gt; to be equal to &lt;code&gt;expected&lt;/code&gt; for each candidate in each unfinished race.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$scope.updateModel = function() {
+	if (!$scope.superDelegatesEnabled) {
+		$scope.democratsuperdelegates.Sanders = $scope.democratsuperdelegates.Clinton = 0;
+	}
+	$scope.sumAllDemocraticDelegates();
+	$scope.data = [$scope.totalDelegates.Clinton, $scope.totalDelegates.Sanders];
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;There’s another callback for a big win in states with delegate count above some threshold (e.g. Sanders gets 75% of the vote in all “big” states or all “small” states), however I won’t go into that here.&lt;/p&gt;
+
+&lt;p&gt;Okay so what about super delegates?&lt;/p&gt;
+
+&lt;h3 id=&quot;step-4-the-x-factor&quot;&gt;Step 4: The X Factor&lt;/h3&gt;
+
+&lt;p&gt;The part that Nate Silver doesn’t model on that page is super delegates since, in theory, they could vote as they please. To account for this, we add a checkbox above the plot that lets us turn the super delegate simulation on or off. If we turn this on, both candidates start with 0 delegates until the slider is disturbed (yeah, I know, lazy).&lt;/p&gt;
+
+&lt;p&gt;Since this is unmodeled, we always reset it by default when switching scenarios – though you can simply turn it back on and set it however you like afterward.&lt;/p&gt;
+
+&lt;h3 id=&quot;conclusion-and-looking-forward&quot;&gt;Conclusion and Looking Forward&lt;/h3&gt;
+
+&lt;p&gt;This was actually pretty fun and different from the daemon or CI automation development I do at work. At some point, I’d like to generalize this for any primary race (e.g. when there are no superdelegates or when there are multiple competitors such as the state of the GOP primary at the time I’m writing this). I’d also like to clean up the code a bit so it’s not quite so… hacky.&lt;/p&gt;
+
+&lt;p&gt;Finally, I’m hoping I can motivate myself to post here more often but… yeah we’ll see.&lt;/p&gt;
+
+            
+        </content>
+    </entry>
+    
+    <entry>
+        <title>Bit Twiddling Tricks 101&#58; The In-Place Swap</title>
+        <link href="/2014/11/28/in-place-swap.html" />
+        <updated>2014-11-28T00:00:00-08:00</updated>
+        <id>/2014/11/28/in-place-swap</id>
+        <content type="html">
+            &lt;p&gt;One of my favorite tricks in C and C++ is messing around with bit-twiddling. That is, screwing around with bitwise operators like AND, OR or XOR to achieve some neat effect. One of the more popular (and useful) tricks exploits a property of XOR to swap int values in-place. How does it work? Like this:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;int a = 1, b = 2;
+cout &amp;lt;&amp;lt; a &amp;lt;&amp;lt; &#39; &#39; &amp;lt;&amp;lt; b &amp;lt;&amp;lt; endl;
+a = a ^ b;	// step 1
+b = b ^ a;	// step 2
+a = a ^ b;	// step 3
+cout &amp;lt;&amp;lt; a &amp;lt;&amp;lt; &#39; &#39; &amp;lt;&amp;lt; b &amp;lt;&amp;lt; endl;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This prints&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;1 2
+2 1
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Why does this work? It’s because of the properties of exclusive-or in Boolean algebra. Recall the truth-table for exclusive-or:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;    | 0   1  
+ ---|--------
+  0 | 0   1 
+  1 | 1   0 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;For any value, &lt;code&gt;A&lt;/code&gt;, this means that &lt;code&gt;A XOR A == 0&lt;/code&gt;. In the first stage of the swap, we set &lt;code&gt;a = a ^ b&lt;/code&gt;. This means that in the second stage, &lt;code&gt;b ^ a&lt;/code&gt; is effectively the same as &lt;code&gt;b ^ a ^ b&lt;/code&gt;. Because exclusive-or is also associative, that is &lt;code&gt;A XOR B == B XOR A&lt;/code&gt;, Therefore, &lt;code&gt;b ^ a&lt;/code&gt; is equivalent to &lt;code&gt;b ^ b ^ a&lt;/code&gt;, which, from associativity, is simply &lt;code&gt;a&lt;/code&gt;. This is why we do step 1 – it sets up &lt;code&gt;a&lt;/code&gt; as a masked variable with &lt;code&gt;b&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;In step 3, we need to recover the original value of &lt;code&gt;b&lt;/code&gt; similarly to get our new value of &lt;code&gt;a&lt;/code&gt;. Since &lt;code&gt;b&lt;/code&gt; now has the original value of &lt;code&gt;a&lt;/code&gt; and &lt;code&gt;a&lt;/code&gt; is &lt;code&gt;a ^ b&lt;/code&gt;, this becomes equivalent to &lt;code&gt;a = a ^ b ^ b&lt;/code&gt;, which, with &lt;code&gt;b&lt;/code&gt;’s new value, is the same as &lt;code&gt;a ^ b ^ a&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;The whole point of this confusing-looking formula is to avoid temporary variables altogether. However, as an illustrative example, let’s see how this looks with a temporary variable &lt;code&gt;x&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;int a = 1, b = 2, x;
+cout &amp;lt;&amp;lt; a &amp;lt;&amp;lt; &#39; &#39; &amp;lt;&amp;lt; b &amp;lt;&amp;lt; endl;
+x = a ^ b;	// step 1
+b = b ^ x;	// step 2 (b now has original value of a)
+a = x ^ b;	// step 3 (a now has original value of b)
+cout &amp;lt;&amp;lt; a &amp;lt;&amp;lt; &#39; &#39; &amp;lt;&amp;lt; b &amp;lt;&amp;lt; endl;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&quot;standard-c&quot;&gt;Standard C++&lt;/h4&gt;
+
+&lt;p&gt;Since C++11, you can now use &lt;code&gt;std::swap&lt;/code&gt; as a fast, reliable way to swap the values of any two variables of the same type. This may be a better approach for many since the above XOR-method doesn’t work for &lt;code&gt;float&lt;/code&gt; or many other types of data. It also happens to be faster! The below test program (compiled using clang++ on a Macbook Pro running Yosemite) yields this XOR approach taking 9.5ms while &lt;code&gt;std::swap&lt;/code&gt; takes 3.9ms for 1,000,000 iterations each.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#include &amp;lt;chrono&amp;gt;
+#include &amp;lt;iostream&amp;gt;
+
+using namespace std;
+
+void intswap(int *a, int *b) {
+    *a ^= *b;
+    *b ^= *a;
+    *a ^= *b;
+}
+
+int main(int argc, char **argv) {
+
+
+    int one = 1, two = 2;
+    chrono::time_point&amp;lt;chrono::system_clock&amp;gt; start, end;
+    chrono::duration&amp;lt;long double&amp;gt; elapsed;
+
+    // use our swap
+    start = chrono::system_clock::now();
+    for (int i = 0; i &amp;lt; 1000000; i++) {
+        one ^= two;
+        two ^= one;
+        one ^= two;
+    }
+    end = chrono::system_clock::now();
+    elapsed = end - start;
+
+    cout &amp;lt;&amp;lt; &quot;XOR swap took &quot; &amp;lt;&amp;lt; elapsed.count() &amp;lt;&amp;lt; endl;
+
+    start = chrono::system_clock::now();
+    for (int i = 0; i &amp;lt; 1000000; i++) {
+        std::swap(one,two);
+    }
+    end = chrono::system_clock::now();
+    elapsed = end - start;
+    cout &amp;lt;&amp;lt; &quot;std::swap took &quot; &amp;lt;&amp;lt; elapsed.count() &amp;lt;&amp;lt; endl;
+
+    return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;What this means is that you should use &lt;code&gt;std::swap&lt;/code&gt; whenever it’s available, but the XOR trick can be useful for swapping stuff in-place on systems that either don’t have C++11 or are very lightweight.&lt;/p&gt;
+
+            
+        </content>
+    </entry>
+    
+    <entry>
+        <title>Instantiating Python Dictionaries</title>
+        <link href="/2014/11/12/python-dictionary-speed.html" />
+        <updated>2014-11-12T00:00:00-08:00</updated>
+        <id>/2014/11/12/python-dictionary-speed</id>
+        <content type="html">
+            &lt;p&gt;As pretty much anyone who has ever written a Python script knows, you can instantiate empty dictionaries in one of two ways: &lt;code&gt;my_dict = {}&lt;/code&gt; or &lt;code&gt;my_dict = dict()&lt;/code&gt;. If you’re feeling particularly verbose, you can also do &lt;code&gt;my_dict = types.DictType.__new__(types.DictType, (), {})&lt;/code&gt; although that’s not really my cup of tea and I won’t really get into it here.&lt;/p&gt;
+
+&lt;p&gt;So what’s the difference between those first two methods? Note: all numbers given here are based on Python 2.7.3 running on a 2012 Macbook Pro running OS X Yosemite.&lt;/p&gt;
+
+&lt;h4 id=&quot;speed&quot;&gt;Speed&lt;/h4&gt;
+
+&lt;p&gt;As it turns out, one of these is way faster than the other:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;gt;&amp;gt;&amp;gt; import timeit
+&amp;gt;&amp;gt;&amp;gt; timeit.timeit(&quot;{}&quot;, number=100000)
+0.0053899288177490234
+&amp;gt;&amp;gt;&amp;gt; timeit.timeit(&quot;dict()&quot;, number=100000)
+0.021266937255859375
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;code&gt;dict()&lt;/code&gt; is about four times slower than &lt;code&gt;{}&lt;/code&gt;. Weird, right? Especially considering that they both return empty dictionaries. So what gives? Doug Hellman goes into some of the reasons &lt;a href=&quot;http://doughellmann.com/2012/11/12/the-performance-impact-of-using-dict-instead-of-in-cpython-2-7-2.html&quot;&gt;here&lt;/a&gt;. In essence, it has to do with how the two dictionaries are allocated under the hood.&lt;/p&gt;
+
+&lt;h4 id=&quot;disassembly&quot;&gt;Disassembly&lt;/h4&gt;
+
+&lt;p&gt;&lt;code&gt;dis&lt;/code&gt;, if you didn’t know, is a disassembler library where you can look at CPython bytecode. Let’s create two functions, &lt;code&gt;lit()&lt;/code&gt;, which uses &lt;code&gt;{}&lt;/code&gt;, and &lt;code&gt;func&lt;/code&gt;, which uses &lt;code&gt;dict()&lt;/code&gt;, then disassemble them.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;gt;&amp;gt;&amp;gt; def lit():  return {}
+... 
+&amp;gt;&amp;gt;&amp;gt; def func(): return dict()
+... 
+&amp;gt;&amp;gt;&amp;gt; dis.dis(lit)
+  1           0 BUILD_MAP                0
+              3 RETURN_VALUE        
+&amp;gt;&amp;gt;&amp;gt; dis.dis(func)
+  1           0 LOAD_GLOBAL              0 (dict)
+              3 CALL_FUNCTION            0
+              6 RETURN_VALUE     
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Okay so from here, it’s obvious that the two things aren’t doing the same thing under the hood, and, in fact, &lt;code&gt;dict()&lt;/code&gt; is doing more. Just knowing that there are extra instructions should be sufficient to understand why one is slower than the other, but just what the hell is &lt;code&gt;dict()&lt;/code&gt; doing? You can read Doug Hellman’s article above to get the full detail, but in summary, it turns out that calling &lt;code&gt;dict()&lt;/code&gt; with any number of key-value pairs actually creates an intermediate dictionary whereas &lt;code&gt;{}&lt;/code&gt; does not.&lt;/p&gt;
+
+            
+        </content>
+    </entry>
+    
+    <entry>
+        <title>D3.js-based Piet Mondrian Art Generator</title>
+        <link href="/2014/10/11/d3-mondrian-generator.html" />
+        <updated>2014-10-11T00:00:00-07:00</updated>
+        <id>/2014/10/11/d3-mondrian-generator</id>
+        <content type="html">
+            &lt;p&gt;To kick off this blog, I want to talk about something near and dear to me: getting out of having to do my high school art and english
+class homework. In this instance, we’re going to make some art.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;http://en.wikipedia.org/wiki/Piet_Mondrian&quot;&gt;Piet Mondrian&lt;/a&gt; was a Dutch painter who was a major contributor to a modern art movement
+known as &lt;a href=&quot;http://en.wikipedia.org/wiki/De_Stijl&quot;&gt;De Stijl&lt;/a&gt;. He’s probably most famous for works like this:&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;&lt;a href=&quot;http://en.wikipedia.org/wiki/File:Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg&quot;&gt;&lt;img src=&quot;http://upload.wikimedia.org/wikipedia/en/f/fe/Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg&quot; alt=&quot;Composition II In Red, Blue and Yellow&quot; style=&quot;width: 250px; height: 250px&quot; /&gt;&lt;/a&gt;&lt;/th&gt;
+      &lt;th&gt;&lt;a href=&quot;http://en.wikipedia.org/wiki/File:Mondrian_CompRYB.jpg&quot;&gt;&lt;img src=&quot;http://upload.wikimedia.org/wikipedia/en/7/72/Mondrian_CompRYB.jpg&quot; alt=&quot;Composition with Yellow, Blue, and Red&quot; style=&quot;width: 250px; height: 250px&quot; /&gt;&lt;/a&gt;&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;em&gt;Composition II In Red, Blue and Yellow&lt;/em&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;em&gt;Composition with Yellow, Blue, and Red&lt;/em&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;We’re going to make our own little script that will generate similar artworks for both fun and possible copyright infringement.&lt;/p&gt;
+
+&lt;p&gt;Now, it’s not to say that this hasn’t been done before. In fact, there are &lt;a href=&quot;http://www.stratigery.com/automondrian.php&quot;&gt;many&lt;/a&gt; &lt;a href=&quot;http://fogleman.tumblr.com/post/11959143268/procedurally-generating-images-in-the-style-of-piet&quot;&gt;such&lt;/a&gt; &lt;a href=&quot;http://fullygraceful.tumblr.com/post/63119977601/i-wrote-a-recursive-random-mondrian-generator&quot;&gt;scripts&lt;/a&gt; out there of varying
+quality and style. This was my own take on the matter, and I decided that, instead of using Python like one or two of the scripts above, I’d write the entire thing to be able to run client-side in your
+browser using the D3.js library.&lt;/p&gt;
+
+&lt;h3 id=&quot;overview-basic-algorithm-idea&quot;&gt;Overview: Basic Algorithm Idea&lt;/h3&gt;
+
+&lt;p&gt;For this, we will be implementing something similar to &lt;em&gt;Composition II in Red, Yellow and Blue&lt;/em&gt;. To do this, we’ll take the following steps:
+1. Draw some lines that will either stop at the edge of the canvas or at another line
+2. Find the rectangles formed by these lines
+3. Fill in some of these rectangles with red, yellow or blue&lt;/p&gt;
+
+&lt;p&gt;Numbers 1 and 3 are actually fairly straightforward with a bit of math knowledge and Googling. Number 2 is probably the toughest part.
+Let’s go through each algorithm section and explain how we accomplish this.&lt;/p&gt;
+
+&lt;h4 id=&quot;step-1-draw-some-lines&quot;&gt;Step 1: Draw Some Lines&lt;/h4&gt;
+
+&lt;p&gt;Each line can be thought of as a partition of the canvas, since it divides up either a section or a subsection into smaller chunks. So first things first, we’ll
+choose how many times to partition. Let’s pick some random number between 4 and 16, why not. &lt;/p&gt;
+
+&lt;p&gt;Actually, I lied. First you need to create a place for D3 to draw stuff. We’ll call this our canvas, even though we’re not strictly using the HTML5 &amp;lt;canvas&amp;gt; element. To do this, we’ll just put an SVG (D3’s choice of formats) into a &amp;lt;div&amp;gt; element on our page whose CSS class is mondrian, like so:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;var container = d3.select(&quot;.mondrian&quot;).append(&quot;svg&quot;).attr(&quot;width&quot;, maxWidth).attr(&quot;height&quot;, maxHeight);
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Obviously you’d want to give it some maximum height and width so it fits in the space you want. Next, we need to draw a border. You 
+can decide later if you want to leave it in or not, but for now we’ll draw four black lines around the outside of our canvas. We will also
+keep track of each line we draw and each point at which the lines intersect, like so:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;var intersectionPoints = [{x:0,y:0}, {x:0,y:maxHeight},{x:maxWidth,y:0}, {x:maxWidth,y:maxHeight}];
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Drawing a line in d3 can be done like so:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;container.append(&quot;line&quot;).attr(&quot;x1&quot;, point1.x).attr(&quot;y1&quot;, point1.y).attr(&quot;x2&quot;, point2.x).attr(&quot;y2&quot;, point2.y).attr(&quot;stroke-width&quot;, width).attr(&quot;stroke&quot;, color);
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;As you can imagine, this is pretty verbose, so we’ll be using a helper function called makeLine to handle this for us. makeLine accepts
+the SVG’s container, a start point, an end point, a line width and a line stroke. Here we’ll actually draw the border lines in white because
+we don’t want to see them.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;var upperLeft = {x: 0, y: 0};
+var lowerLeft = {x: 0, y: maxHeight};
+var upperRight = {x: maxWidth, y: 0};
+var lowerRight = {x: maxWidth, y: maxHeight};
+container = makeLine(container, upperLeft, upperRight, 4, &quot;white&quot;);
+container = makeLine(container, upperLeft, lowerLeft, 4, &quot;white&quot;);
+container = makeLine(container, lowerLeft, lowerRight, 4, &quot;white&quot;);
+container = makeLine(container, upperRight, lowerRight, 4, &quot;white&quot;);
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;After this we’ll store these four lines, as defined by their start and end points, designated as line.p1 or line.p2, in an array:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;drawnLines.push({p1: upperLeft, p2: upperRight});
+drawnLines.push({p1: upperLeft, p2: lowerLeft});
+drawnLines.push({p1: lowerLeft, p2: lowerRight});
+drawnLines.push({p1: upperRight, p2: lowerRight});
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Okay, now down to the fun part: let’s make N partitions. To do this, you’ll need to do the following:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;for 1 to numPartitions:
+	randomly choose to draw a vertical line or horizontal line, L, with endpoints spanning the height or width of the canvas, respectively
+	check if L is closer than some threshold to any line in drawnLines
+	if yes, choose a new L as above, else continue
+	for each line M in drawnLines:
+		if L and M intersect at point K:
+			randomly replace either L.p1 or L.p2 with K
+	draw the newly-shortened L
+	store L in drawnLines
+	store L.p1 and L.p2 in intersectionPoints
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;For the sake of brevity, I’m omitting the actual implementation of this, but you can see the full implementation within mondrian.js in this project’s repository. The reason why you need to check if L is too close to other lines is because if you don’t, you can either get really tiny rectangles or lines on top of one another. In my implementation, I mandate that there are at least minRectSide pixels between each parallel line.&lt;/p&gt;
+
+&lt;h4 id=&quot;step-2-find-the-resultant-rectangles&quot;&gt;Step 2: Find the Resultant Rectangles&lt;/h4&gt;
+
+&lt;p&gt;Obviously, we want to fill in some of the rectangles formed by the intersection points of this newly-drawn grid of lines. We could, in theory, find &lt;em&gt;any&lt;/em&gt; rectangle formed by any four intersection points, but that wouldn’t be fun or challenging. Also, it would no longer look like &lt;em&gt;Composition II in Red, Yellow and Blue&lt;/em&gt;. How do we find this? There are probably lots of algorithms out there, but here’s how I did it:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;// let each rectangle be defined by its upper-left and lower-right points, P1 and P2
+// the upper-right and lower-left points shall be P3 and P4, respectively, as well
+rectangles = []
+for each P1 in intersectionPoints:
+	// let P1 be the upper-left point of the rectangle
+	if P1 is already the upper-left point in any rectangle in rectangles, discard this P1 and continue to next iteration
+
+	let candidatesP4 be a list of possible points that may be the P4 corresponding to this P1
+	for each P4 in intersectionPoints:
+		if P4 has the same x and a larger y than P1, store P4 in candidatesP4
+	if candidatesP4 is empty, go to next P1
+
+	let candidatesP3 be a list of possible points that may be the P4 corresponding to this P1
+	for each P3 in intersectionPoints:
+		if P3 has the same y and a larger x than P1, store P3 in candidatesP3
+	if candidatesP3 is empty, go to next P1
+	otherwise, find the entry in P3 that is closest to P1, let this be P3
+
+	// now find a point P2 such that:
+	//		1. P2.x == P3.x
+	//		2. P2.y &amp;gt;  P3.y
+	//		3. There exists a point P4 such thatP4.x &amp;lt; P2.x and P4.y == P2.y and P1.x == P4.x
+	let candidatesP2 be a list of possible points that may be the P4 corresponding to this P1
+	for each P2 in intersectionPoints:
+		if P2.x == P3.x and P2.y &amp;gt; P3.y:
+			for each P4 in intersectionPoints:
+				if P4.x &amp;lt; P2.x and P4.y == P2.y and P4.x == P1.x:
+					then such a P4 exists
+			if such a P4 exists, add P2 to candidatesP2
+
+	if candidatesP2 is empty, go to next P1
+	otherwise, P2 is the first element in candidatesP2
+	define a new rectangle, R, with upper-left = P1 and lower-right = P2
+	add R to rectangles
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&quot;step-3-color-the-rectangles&quot;&gt;Step 3: Color The Rectangles&lt;/h4&gt;
+
+&lt;p&gt;This is the last step. Here we need to randomly pick some of the rectangles we found in the previous step to color and fill them in. The real trick here, honestly, is to figure out how many of the rectangles we want to color in. For my implementation, I randomly choose about 25% of the rectangles to be colored in, but also mandate that at least 1 but no more than 33% of the rectangles are colored. To implement this, I set a series of flags corresponding to each rectangle. If the flag is 0, I don’t color. Otherwise, I color. Here’s how it’s done in pseudocode:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;repeat until between 1 and 1/3 of total are to be colored:
+	for each rectangle in rectangles:
+		tag rectangle as to be colored with 25% probability
+for each rectangle in rectangles:
+	if rectangle is to be colored:
+		randomly select a color from [red, yellow, blue]
+		color the rectangle
+redraw all lines except borders
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&quot;d3js&quot;&gt;D3.js&lt;/h3&gt;
+
+&lt;p&gt;I picked this partially because I wanted to learn more about D3. Since it’s mostly a library designed for drawing, it only appears in three places in this project. &lt;/p&gt;
+
+&lt;p&gt;The first is when D3 appends an SVG to the .mondrian div on the webpage and initializes it with some width and height. This is pretty straightforward:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;var container = d3.select(&quot;.mondrian&quot;).append(&quot;svg&quot;).attr(&quot;width&quot;, maxWidth).attr(&quot;height&quot;, maxHeight);
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We store this object representing the SVG in &lt;code&gt;var container&lt;/code&gt;. The other two places where it shows up are in the methods used for drawing lines and filled rectangles, respectively:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;function makeLine(lineContainer, point1, point2, width, color) {
+	lineContainer.append(&quot;line&quot;).attr(&quot;x1&quot;, point1.x).attr(&quot;y1&quot;, point1.y).attr(&quot;x2&quot;, point2.x).attr(&quot;y2&quot;, point2.y).attr(&quot;stroke-width&quot;, width).attr(&quot;stroke&quot;, color);
+	return lineContainer;
+}
+
+/**
+    Draws a rectangle of the desired size and fill shape
+        rect contains an upper left and lower right x,y point defining its borders
+ */
+function drawRectangle(container, rect, color) {
+    var xStart = rect.p1.x;
+    var yStart = rect.p1.y;
+    var width = Math.abs(rect.p2.x - xStart);
+    var height = Math.abs(rect.p2.y - yStart);
+    container.append(&quot;rect&quot;).attr(&quot;x&quot;, xStart).attr(&quot;y&quot;, yStart).attr(&quot;width&quot;, width).attr(&quot;height&quot;, height).attr(&quot;fill&quot;, color);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;code&gt;makeline&lt;/code&gt; is a very simple method – here we simply append a line object to the container (&lt;code&gt;.append(&#39;line&#39;)&lt;/code&gt;), then set its start and end points. We also give it a color and a stroke width, in pixels. An example call to this in this project might be &lt;code&gt;makeLine(container, {x: 0, y: 0}, {x: 0, y: maxHeight}, 4, &quot;black&quot;)&lt;/code&gt;, which draws a line along the left-most border of the SVG that is 4 pixels wide and black.&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;drawRectangle&lt;/code&gt; involves a bit of math but is otherwise pretty simple. We define the origin of the rectangle, which in d3.js is the upper-left corner, as &lt;code&gt;p1&lt;/code&gt; of the &lt;code&gt;rect&lt;/code&gt; object passed to this function. From there, we compute the height and width, respectively, by computing the distances in x and y, respectively, between &lt;code&gt;rect.p1&lt;/code&gt; and &lt;code&gt;rect.p2&lt;/code&gt;. From there, we &lt;code&gt;.append(&#39;rect&#39;)&lt;/code&gt; to the container, giving it the start x and y coordinates, the height, the width and a fill color. In our case, the fill color is chosen pseudorandomly from a list of three possible colors.&lt;/p&gt;
+
+&lt;p&gt;I have one last utility function used solely for debugging:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;/**
+    Draws text
+ */
+function addText(container, pos, _text) {
+    return container.append(&quot;text&quot;).attr(&quot;dx&quot;, pos.x).attr(&quot;dy&quot;, pos.y+10).text(_text);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This adds some text to the container at the specified position.&lt;/p&gt;
+
+            
+        </content>
+    </entry>
+    
+    <entry>
+        <title>First!</title>
+        <link href="/2014/10/05/first-post-and-acknowledgements.html" />
+        <updated>2014-10-05T00:00:00-07:00</updated>
+        <id>/2014/10/05/first-post-and-acknowledgements</id>
+        <content type="html">
+            &lt;p&gt;Alright, after some tribulations I’ve gotten this thing started. First things first, I want to acknowledge &lt;a href=&quot;http://uberobert.com&quot;&gt;Robert Birnie and his site
+Uberobert&lt;/a&gt; for being the basis for the layout I’m using here. I’d never used Jekyll before, so it was a great reference.&lt;/p&gt;
+
+&lt;p&gt;You can reference my code via my &lt;a href=&quot;https://github.com/iveygman/iveygman.github.io&quot;&gt;Github account&lt;/a&gt;. One of these days, I’ll post a tutorial
+of how I set it up.&lt;/p&gt;
+
+            
+        </content>
+    </entry>
+    
+</feed>
