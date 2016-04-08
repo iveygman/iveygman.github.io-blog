@@ -1,0 +1,35 @@
+<p>As pretty much anyone who has ever written a Python script knows, you can instantiate empty dictionaries in one of two ways: <code>my_dict = {}</code> or <code>my_dict = dict()</code>. If you’re feeling particularly verbose, you can also do <code>my_dict = types.DictType.__new__(types.DictType, (), {})</code> although that’s not really my cup of tea and I won’t really get into it here.</p>
+
+<p>So what’s the difference between those first two methods? Note: all numbers given here are based on Python 2.7.3 running on a 2012 Macbook Pro running OS X Yosemite.</p>
+
+<h4 id="speed">Speed</h4>
+
+<p>As it turns out, one of these is way faster than the other:</p>
+
+<pre><code>&gt;&gt;&gt; import timeit
+&gt;&gt;&gt; timeit.timeit("{}", number=100000)
+0.0053899288177490234
+&gt;&gt;&gt; timeit.timeit("dict()", number=100000)
+0.021266937255859375
+</code></pre>
+
+<p><code>dict()</code> is about four times slower than <code>{}</code>. Weird, right? Especially considering that they both return empty dictionaries. So what gives? Doug Hellman goes into some of the reasons <a href="http://doughellmann.com/2012/11/12/the-performance-impact-of-using-dict-instead-of-in-cpython-2-7-2.html">here</a>. In essence, it has to do with how the two dictionaries are allocated under the hood.</p>
+
+<h4 id="disassembly">Disassembly</h4>
+
+<p><code>dis</code>, if you didn’t know, is a disassembler library where you can look at CPython bytecode. Let’s create two functions, <code>lit()</code>, which uses <code>{}</code>, and <code>func</code>, which uses <code>dict()</code>, then disassemble them.</p>
+
+<pre><code>&gt;&gt;&gt; def lit():  return {}
+... 
+&gt;&gt;&gt; def func(): return dict()
+... 
+&gt;&gt;&gt; dis.dis(lit)
+  1           0 BUILD_MAP                0
+              3 RETURN_VALUE        
+&gt;&gt;&gt; dis.dis(func)
+  1           0 LOAD_GLOBAL              0 (dict)
+              3 CALL_FUNCTION            0
+              6 RETURN_VALUE     
+</code></pre>
+
+<p>Okay so from here, it’s obvious that the two things aren’t doing the same thing under the hood, and, in fact, <code>dict()</code> is doing more. Just knowing that there are extra instructions should be sufficient to understand why one is slower than the other, but just what the hell is <code>dict()</code> doing? You can read Doug Hellman’s article above to get the full detail, but in summary, it turns out that calling <code>dict()</code> with any number of key-value pairs actually creates an intermediate dictionary whereas <code>{}</code> does not.</p>
