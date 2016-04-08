@@ -1,5 +1,6 @@
+_site/
+_posts/_site
 test.sh
-Gemfile.*
 *.DS_Store
 *.pem
 push.py
