@@ -2,7 +2,7 @@ exclude: ['README.md', 'manifest.yml', 'rakefile.rb', 'Gemfile', 'Gemfile.lock']
 highlighter: rouge 
 markdown: kramdown
 future:      false
-permalink:   /:title
+permalink: /blog/:year/:month/:day/:title/
 
 # Site
 iveygman:
