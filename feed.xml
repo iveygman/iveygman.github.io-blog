@@ -12,16 +12,9 @@
     </author>
     {% for post in site.posts limit: 4 %}
     <entry>
-        <title>{{ post.title }}</title>
         <link href="{{ site.url }}{{ post.url }}" />
-        <updated>{{ post.date | date_to_xmlschema }}</updated>
         <id>{{ site.url }}{{ post.id }}</id>
-        <content type="html">
-            {{ post.content | xml_escape }}
-            {% if post.source  %}
-                &lt;p&gt;&lt;a href='{{ site.url }}{{ post.url }}'&gt; ☺ Source&lt;/a&gt;&lt;/p&gt;
-            {% endif %}
-        </content>
+        {{ post | only_first_p }}
     </entry>
     {% endfor %}
 </feed>
