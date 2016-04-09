@@ -1,3 +1,4 @@
+_site/
 test.sh
 *.DS_Store
 *.pem
