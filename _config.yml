@@ -1,7 +1,13 @@
+exclude: ['README.md', 'manifest.yml', 'rakefile.rb', 'Gemfile', 'Gemfile.lock']
 highlighter: rouge 
 markdown: kramdown
-
+future:      false
+pygments:    true
 permalink:   /:title
+
+# Site
+iveygman:
+    title: I, Veygman
 
 # Only First P Plugin
 only_first_p:

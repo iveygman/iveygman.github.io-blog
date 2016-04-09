@@ -1,5 +1,3 @@
-_site/
-_posts/_site
 test.sh
 *.DS_Store
 *.pem
